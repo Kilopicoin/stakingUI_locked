@@ -1,0 +1,394 @@
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity 0.8.13;
+
+interface IHarmLop {
+    function totalSupply() external view returns (uint);
+    function balanceOf(address who) external view returns (uint);
+    function approve(address spender, uint value) external returns (bool);
+    function transfer(address to, uint value) external returns (bool);
+    function transferFrom(address from, address to, uint value) external returns (bool);
+    function burn(uint value) external returns (bool);
+}
+
+
+library SafeMath {
+
+    /**
+     * @dev Multiplies two numbers, reverts on overflow.
+     */
+    function mul(uint a, uint b) internal pure returns (uint) {
+        // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
+        // benefit is lost if 'b' is also tested.
+        // See: https://github.com/OpenZeppelin/openzeppelin-solidity/pull/522
+        if (a == 0) {
+            return 0;
+        }
+
+        uint c = a * b;
+        require(c / a == b);
+
+        return c;
+    }
+
+    /**
+     * @dev Integer division of two numbers truncating the quotient, reverts on division by zero.
+     */
+    function div(uint a, uint b) internal pure returns (uint) {
+        require(b > 0); // Solidity only automatically asserts when dividing by 0
+        uint c = a / b;
+        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+
+        return c;
+    }
+
+    /**
+     * @dev Subtracts two numbers, reverts on overflow (i.e. if subtrahend is greater than minuend).
+     */
+    function sub(uint a, uint b) internal pure returns (uint) {
+        require(b <= a);
+        uint c = a - b;
+
+        return c;
+    }
+
+    /**
+     * @dev Adds two numbers, reverts on overflow.
+     */
+    function add(uint a, uint b) internal pure returns (uint) {
+        uint c = a + b;
+        require(c >= a);
+
+        return c;
+    }
+
+    /**
+     * @dev Divides two numbers and returns the remainder (unsigned integer modulo),
+     * reverts when dividing by zero.
+     */
+    function mod(uint a, uint b) internal pure returns (uint) {
+        require(b != 0);
+        return a % b;
+    }
+}
+
+
+
+
+
+
+contract StakeNM is IHarmLop {
+
+
+struct Staking{
+uint256 id;
+address Staker;
+uint256 Amount;
+uint256 Option;
+uint256 StartDate;
+uint256 FinishDate;
+uint256 Prize;
+uint256 Active;
+    }
+
+mapping (address => mapping (uint256 => Staking)) public stakes;
+mapping (address => uint256) public stakeNos;
+mapping (address => uint256) public KullanimS;
+
+	IHarmLop public token;
+	address public owner;
+    uint256 public status; // 1 for active, 0 for passive
+    uint256 public stakingcount;
+    uint256 public totalstaked;
+    uint256 public totalprizepool;
+
+
+
+
+    // isim icin baslangic
+
+	using SafeMath for uint;
+
+    string public constant name = "StakingL";
+    string public constant symbol = "STL";
+    uint8 public constant decimals = 6;
+    uint public totalSupply = 0;
+    bool public statusWorld = true;
+
+    mapping(address => uint) public balanceOf;
+    mapping(address => mapping(address => uint)) public allowance;
+
+    event Transfer(address indexed from, address indexed to, uint value);
+    event Approval(address indexed owner, address indexed spender, uint value);
+
+
+	// isim icin bitis
+
+
+ 
+
+	constructor (IHarmLop _token)  {
+       owner = msg.sender;
+       token = _token;
+       _mint(msg.sender, 1000000);
+       statusWorld = false;
+    }
+
+
+
+// isim icin baslangic
+
+function approve(address _spender, uint _value) external returns (bool) {
+        allowance[msg.sender][_spender] = _value;
+        emit Approval(msg.sender, _spender, _value);
+        return true;
+    }
+
+    function _mint(address _to, uint _amount) internal returns (bool) {
+        require(statusWorld, "W P");
+        totalSupply += _amount;
+        unchecked {
+            balanceOf[_to] += _amount;
+        }
+        emit Transfer(address(0x0), _to, _amount);
+        return true;
+    }
+
+    function _transfer(address from, address to, uint256 value) internal returns (bool) {
+        require(to != address(0));
+
+        balanceOf[from] = balanceOf[from].sub(value);
+        balanceOf[to] = balanceOf[to].add(value);
+        emit Transfer(from, to, value);
+        return true;
+    }
+
+    function _burn(address account, uint256 value) internal returns (bool) {
+        require(account != address(0));
+
+        totalSupply = totalSupply.sub(value);
+        balanceOf[account] = balanceOf[account].sub(value);
+        emit Transfer(account, address(0), value);
+        return true;
+    }
+
+    function burn(uint value) external returns (bool){
+        _burn(msg.sender, value);
+        return true;
+    }
+
+    function transfer(address _to, uint _value) external returns (bool) {
+        return _transfer(msg.sender, _to, _value);
+    }
+
+    function transferFrom(address _from, address _to, uint _value) external returns (bool) {
+        uint allowed_from = allowance[_from][msg.sender];
+        if (allowed_from != type(uint).max) {
+            allowance[_from][msg.sender] -= _value;
+        }
+        return _transfer(_from, _to, _value);
+    }
+
+    function increaseAllowance(
+        address spender,
+        uint addedValue
+    )
+    public
+    returns (bool)
+    {
+        require(spender != address(0));
+
+        allowance[msg.sender][spender] += addedValue;
+        emit Approval(msg.sender, spender, allowance[msg.sender][spender]);
+        return true;
+    }
+
+    function decreaseAllowance(
+        address spender,
+        uint subtractedValue
+    )
+    public
+    returns (bool)
+    {
+        require(spender != address(0));
+
+        allowance[msg.sender][spender] -= subtractedValue;
+        emit Approval(msg.sender, spender, allowance[msg.sender][spender]);
+        return true;
+    }
+
+// isim icin bitis
+
+
+
+
+
+
+event e_stake(address indexed e_staker, uint256 e_amount, uint256 e_option, uint256 e_timestamp);
+event e_unstake(address indexed e_staker, uint256 e_id, uint256 e_amount, uint256 e_timestamp);
+
+
+
+
+
+
+function statuschange(uint256 statusx_) public {
+  require(msg.sender == owner, "only owner");
+  status = statusx_;
+}
+
+
+function borc() public view returns (uint256)  {
+
+        uint256 totalx = totalstaked + totalprizepool;
+        uint256 borcx = 0;
+
+            if ( totalx > token.balanceOf(address(this))) {
+
+                borcx = totalx - token.balanceOf(address(this));
+
+            }
+      
+        return (borcx);
+    }
+
+
+    function simdi() public view returns (uint256)  {
+
+        uint256 simdix = block.timestamp;
+
+        return (simdix);
+    }
+
+
+function stake(uint256 amountx_, uint256 optionx_) public {
+uint256 KullanimSX = KullanimS[msg.sender] + 3600; // 3600 bir saatlik saniye
+
+require(block.timestamp > KullanimSX, "Kullanim siniri");
+require(status == 1, "contract should be active");
+require(token.balanceOf(address(msg.sender)) >= amountx_, "must be at least needed");
+require(amountx_ >= 1000000, "min stake is 1");
+
+if ( optionx_ == 1 ) {
+    require(token.transferFrom(msg.sender,(address(this)),amountx_));
+    stakeNos[msg.sender]++;
+    uint256 finish = block.timestamp + 7776000; // 3 months in saniye 7776000
+    uint256 prizex = amountx_ / 1000;
+    uint256 prize = prizex * 4;
+    stakes[msg.sender][stakeNos[msg.sender]] = Staking(stakeNos[msg.sender],msg.sender,amountx_,optionx_,block.timestamp,finish,prize,1);
+    totalstaked = totalstaked + amountx_;
+    totalprizepool = totalprizepool + prize;
+} else if ( optionx_ == 2 ) {
+    require(token.transferFrom(msg.sender,(address(this)),amountx_));
+    stakeNos[msg.sender]++;
+    uint256 finish = block.timestamp + 15552000; // 6 months in saniye 15552000
+    uint256 prizex = amountx_ / 1000;
+    uint256 prize = prizex * 10;
+    stakes[msg.sender][stakeNos[msg.sender]] = Staking(stakeNos[msg.sender],msg.sender,amountx_,optionx_,block.timestamp,finish,prize,1);
+    totalstaked = totalstaked + amountx_;
+    totalprizepool = totalprizepool + prize;
+} else if ( optionx_ == 3 ) {
+    require(token.transferFrom(msg.sender,(address(this)),amountx_));
+    stakeNos[msg.sender]++;
+    uint256 finish = block.timestamp + 31104000; // 12 months in saniye 31104000
+    uint256 prizex = amountx_ / 1000;
+    uint256 prize = prizex * 25;
+    stakes[msg.sender][stakeNos[msg.sender]] = Staking(stakeNos[msg.sender],msg.sender,amountx_,optionx_,block.timestamp,finish,prize,1);
+    totalstaked = totalstaked + amountx_;
+    totalprizepool = totalprizepool + prize;
+}
+
+KullanimS[msg.sender] = block.timestamp;
+emit e_stake(msg.sender, amountx_, optionx_, block.timestamp);
+
+
+}
+
+
+
+function unstake(uint256 unstakeid_, uint256 amount_) public {
+uint256 KullanimSX = KullanimS[msg.sender] + 3600; // 3600 bir saatlik saniye
+
+require(block.timestamp > KullanimSX, "Kullanim siniri");
+    require(stakes[msg.sender][unstakeid_].Staker == msg.sender, "addresses must match");
+    require(stakes[msg.sender][unstakeid_].Active == 1, "Stake should be active");
+    require(amount_ >= 1000000, "min unstake is 1");
+
+    uint256 tobesentF;
+
+    uint256 bitiscizgisi = stakes[msg.sender][unstakeid_].FinishDate;
+    bitiscizgisi = bitiscizgisi - 60;
+
+        if (block.timestamp > bitiscizgisi) {
+
+    tobesentF = stakes[msg.sender][unstakeid_].Amount + stakes[msg.sender][unstakeid_].Prize;
+    require(token.balanceOf(address(this)) >= tobesentF, "Contract is out of balance");
+    
+    stakes[msg.sender][unstakeid_].Active = 0;
+
+    totalstaked = totalstaked - stakes[msg.sender][unstakeid_].Amount;
+    totalprizepool = totalprizepool - stakes[msg.sender][unstakeid_].Prize;
+
+    stakes[msg.sender][unstakeid_].Prize = 0;
+    stakes[msg.sender][unstakeid_].Amount = 0;
+
+        } else {
+
+                if ( amount_ >= stakes[msg.sender][unstakeid_].Amount ) {
+
+                    tobesentF = stakes[msg.sender][unstakeid_].Amount;
+                    tobesentF = tobesentF - ( tobesentF / 1000 );
+                    require(token.balanceOf(address(this)) >= tobesentF, "Contract is out of balance");
+                    
+                    stakes[msg.sender][unstakeid_].Active = 0;
+
+                    totalstaked = totalstaked - stakes[msg.sender][unstakeid_].Amount;
+                    totalprizepool = totalprizepool - stakes[msg.sender][unstakeid_].Prize;
+
+                    stakes[msg.sender][unstakeid_].FinishDate = block.timestamp;
+
+                    stakes[msg.sender][unstakeid_].Prize = 0;
+                    stakes[msg.sender][unstakeid_].Amount = 0;
+
+
+                } else {
+
+                    uint256 tobesentz = amount_;
+                    tobesentF = tobesentz - ( tobesentz / 1000 );
+                    require(token.balanceOf(address(this)) >= tobesentF, "Contract is out of balance");
+                    
+
+                    uint256 eskiAmount = stakes[msg.sender][unstakeid_].Amount;
+                    uint256 eskiPrize = stakes[msg.sender][unstakeid_].Prize;
+
+                    uint256 eksilen = tobesentz * eskiPrize ;
+                    eksilen = eksilen / eskiAmount;
+
+                    stakes[msg.sender][unstakeid_].Prize = stakes[msg.sender][unstakeid_].Prize - eksilen;
+                    stakes[msg.sender][unstakeid_].Amount = stakes[msg.sender][unstakeid_].Amount - tobesentz;
+
+
+                    totalstaked = totalstaked - tobesentz;
+                    totalprizepool = totalprizepool - eksilen;
+
+
+                }
+
+
+
+
+
+            
+
+        }
+KullanimS[msg.sender] = block.timestamp;
+emit e_unstake(msg.sender, unstakeid_, amount_, block.timestamp);
+require(token.transfer(msg.sender, tobesentF));
+
+ }
+
+
+
+
+
+
+    }

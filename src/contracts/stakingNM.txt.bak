@@ -1,0 +1,223 @@
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity 0.8.13;
+
+interface IBscLop {
+    function totalSupply() external view returns (uint);
+    function balanceOf(address who) external view returns (uint);
+    function approve(address spender, uint value) external returns (bool);
+    function transfer(address to, uint value) external returns (bool);
+    function transferFrom(address from, address to, uint value) external returns (bool);
+    function burn(uint value) external returns (bool);
+}
+
+
+contract StakeNM {
+
+
+struct Staking{
+uint256 id;
+address Staker;
+uint256 Amount;
+uint256 Option;
+uint256 StartDate;
+uint256 FinishDate;
+uint256 Prize;
+uint256 Active;
+    }
+
+mapping (address => mapping (uint256 => Staking)) public stakes;
+mapping (address => uint256) public stakeNos;
+mapping (address => uint256) public KullanimS;
+
+	IBscLop public token;
+	address public owner;
+    uint256 public status; // 1 for active, 0 for passive
+    uint256 public stakingcount;
+    uint256 public totalstaked;
+    uint256 public totalprizepool;
+ 
+
+	constructor (IBscLop _token)  {
+       owner = msg.sender;
+       token = _token;
+    }
+
+
+
+
+
+
+event e_stake(address indexed e_staker, uint256 e_amount, uint256 e_option, uint256 e_timestamp);
+event e_unstake(address indexed e_staker, uint256 e_id, uint256 e_amount, uint256 e_timestamp);
+
+
+
+
+
+
+function statuschange(uint256 statusx_) public {
+  require(msg.sender == owner, "only owner");
+  status = statusx_;
+}
+
+
+function borc() public view returns (uint256)  {
+
+        uint256 totalx = totalstaked + totalprizepool;
+        uint256 borcx = 0;
+
+            if ( totalx > token.balanceOf(address(this))) {
+
+                borcx = totalx - token.balanceOf(address(this));
+
+            }
+      
+        return (borcx);
+    }
+
+
+    function simdi() public view returns (uint256)  {
+
+        uint256 simdix = block.timestamp;
+
+        return (simdix);
+    }
+
+
+function stake(uint256 amountx_, uint256 optionx_) public {
+uint256 KullanimSX = KullanimS[msg.sender] + 180; // 3600 bir saatlik saniye
+
+require(block.timestamp > KullanimSX, "Kullanim siniri");
+require(status == 1, "contract should be active");
+require(token.balanceOf(address(msg.sender)) >= amountx_, "must be at least needed");
+require(amountx_ >= 1000000, "min stake is 1");
+
+if ( optionx_ == 1 ) {
+    require(token.transferFrom(msg.sender,(address(this)),amountx_));
+    stakeNos[msg.sender]++;
+    uint256 finish = block.timestamp + 900; // 3 months in saniye 7776000
+    uint256 prizex = amountx_ / 1000;
+    uint256 prize = prizex * 4;
+    stakes[msg.sender][stakeNos[msg.sender]] = Staking(stakeNos[msg.sender],msg.sender,amountx_,optionx_,block.timestamp,finish,prize,1);
+    totalstaked = totalstaked + amountx_;
+    totalprizepool = totalprizepool + prize;
+} else if ( optionx_ == 2 ) {
+    require(token.transferFrom(msg.sender,(address(this)),amountx_));
+    stakeNos[msg.sender]++;
+    uint256 finish = block.timestamp + 1800; // 6 months in saniye 15552000
+    uint256 prizex = amountx_ / 1000;
+    uint256 prize = prizex * 10;
+    stakes[msg.sender][stakeNos[msg.sender]] = Staking(stakeNos[msg.sender],msg.sender,amountx_,optionx_,block.timestamp,finish,prize,1);
+    totalstaked = totalstaked + amountx_;
+    totalprizepool = totalprizepool + prize;
+} else if ( optionx_ == 3 ) {
+    require(token.transferFrom(msg.sender,(address(this)),amountx_));
+    stakeNos[msg.sender]++;
+    uint256 finish = block.timestamp + 3600; // 12 months in saniye 31104000
+    uint256 prizex = amountx_ / 1000;
+    uint256 prize = prizex * 25;
+    stakes[msg.sender][stakeNos[msg.sender]] = Staking(stakeNos[msg.sender],msg.sender,amountx_,optionx_,block.timestamp,finish,prize,1);
+    totalstaked = totalstaked + amountx_;
+    totalprizepool = totalprizepool + prize;
+}
+
+KullanimS[msg.sender] = block.timestamp;
+emit e_stake(msg.sender, amountx_, optionx_, block.timestamp);
+
+
+}
+
+
+
+function unstake(uint256 unstakeid_, uint256 amount_) public {
+uint256 KullanimSX = KullanimS[msg.sender] + 180; // 3600 bir saatlik saniye
+
+require(block.timestamp > KullanimSX, "Kullanim siniri");
+    require(stakes[msg.sender][unstakeid_].Staker == msg.sender, "addresses must match");
+    require(stakes[msg.sender][unstakeid_].Active == 1, "Stake should be active");
+
+    uint256 bitiscizgisi = stakes[msg.sender][unstakeid_].FinishDate;
+    bitiscizgisi = bitiscizgisi - 60;
+
+        if (block.timestamp > bitiscizgisi) {
+
+    uint256 tobesent = stakes[msg.sender][unstakeid_].Amount + stakes[msg.sender][unstakeid_].Prize;
+    require(token.balanceOf(address(this)) >= tobesent, "Contract is out of balance");
+    
+    stakes[msg.sender][unstakeid_].Active = 0;
+
+    totalstaked = totalstaked - stakes[msg.sender][unstakeid_].Amount;
+    totalprizepool = totalprizepool - stakes[msg.sender][unstakeid_].Prize;
+
+    stakes[msg.sender][unstakeid_].Prize = 0;
+    stakes[msg.sender][unstakeid_].Amount = 0;
+
+    require(token.transfer(msg.sender, tobesent));
+
+        } else {
+
+                if ( amount_ >= stakes[msg.sender][unstakeid_].Amount ) {
+
+                    uint256 tobesentz = stakes[msg.sender][unstakeid_].Amount;
+                    tobesentz = tobesentz - ( tobesentz / 1000 );
+                    require(token.balanceOf(address(this)) >= tobesentz, "Contract is out of balance");
+                    
+                    stakes[msg.sender][unstakeid_].Active = 0;
+
+                    totalstaked = totalstaked - stakes[msg.sender][unstakeid_].Amount;
+                    totalprizepool = totalprizepool - stakes[msg.sender][unstakeid_].Prize;
+
+                    stakes[msg.sender][unstakeid_].FinishDate = block.timestamp;
+
+                    stakes[msg.sender][unstakeid_].Prize = 0;
+                    stakes[msg.sender][unstakeid_].Amount = 0;
+
+                    require(token.transfer(msg.sender, tobesentz));
+
+
+                } else {
+
+                    uint256 tobesentz = amount_;
+                    uint256 tobesentzK = tobesentz - ( tobesentz / 1000 );
+                    require(token.balanceOf(address(this)) >= tobesentzK, "Contract is out of balance");
+                    
+
+                    uint256 eskiAmount = stakes[msg.sender][unstakeid_].Amount;
+                    uint256 eskiPrize = stakes[msg.sender][unstakeid_].Prize;
+
+                    uint256 eksilen = tobesentz * eskiPrize ;
+                    eksilen = eksilen / eskiAmount;
+
+                    stakes[msg.sender][unstakeid_].Prize = stakes[msg.sender][unstakeid_].Prize - eksilen;
+                    stakes[msg.sender][unstakeid_].Amount = stakes[msg.sender][unstakeid_].Amount - tobesentz;
+
+
+                    totalstaked = totalstaked - tobesentz;
+                    totalprizepool = totalprizepool - eksilen;
+
+                    require(token.transfer(msg.sender, tobesentzK));
+
+
+
+
+
+                }
+
+
+
+
+
+            
+
+        }
+KullanimS[msg.sender] = block.timestamp;
+emit e_unstake(msg.sender, unstakeid_, amount_, block.timestamp);
+
+ }
+
+
+
+
+
+
+    }
